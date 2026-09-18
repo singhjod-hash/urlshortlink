@@ -1,1 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Telegram Earning Mini App</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Monetag SDK Tag -->
+    <script src='//libtl.com/sdk.js' data-zone='11833475' data-sdk='show_11833475'></script>
 
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#1e1b4b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen pb-24 font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 transform transition-all duration-300 opacity-0 pointer-events-none px-4 py-2 rounded-xl text-sm font-medium shadow-xl flex items-center gap-2"></div>
+
+    <!-- Top Profile Header -->
+    <header class="p-4 bg-gradient-to-b from-indigo-950/60 to-transparent">
+        <div class="max-w-md mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div id="userAvatar" class="w-11 h-11 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-indigo-500/30 ring-2 ring-indigo-400/40">
+                    U
+                </div>
+                <div>
+                    <h2 id="userName" class="text-sm font-semibold text-slate-100 flex items-center gap-1.5">
+                        Loading...
+                    </h2>
+                    <p id="userIdDisplay" class="text-xs text-slate-400 font-mono">ID: -------</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 bg-indigo-900/40 border border-indigo-500/30 px-3 py-1.5 rounded-full">
+                <i class="fa-solid fa-bolt text-yellow-400 text-xs"></i>
+                <span class="text-xs font-semibold text-indigo-200">Active</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-md mx-auto px-4 space-y-4">
+        
+        <!-- Balance Card -->
+        <div class="glass rounded-3xl p-6 relative overflow-hidden shadow-2xl border border-indigo-500/20 bg-gradient-to-br from-indigo-900/40 via-slate-900/60 to-purple-900/30">
+            <div class="absolute -right-8 -top-8 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            
+            <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1">Total Balance</p>
+            <div class="flex items-baseline gap-2 mb-4">
+                <span class="text-xs font-semibold text-slate-400">$</span>
+                <h1 id="userBalance" class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white via-indigo-100 to-indigo-300">0.0000</h1>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-3 border-t border-slate-800/80">
+                <div class="bg-slate-900/50 rounded-2xl p-3 border border-slate-800">
+                    <span class="text-[11px] text-slate-400 block">Ads Watched</span>
+                    <span id="adsCount" class="text-lg font-bold text-indigo-300">0</span>
+                </div>
+                <div class="bg-slate-900/50 rounded-2xl p-3 border border-slate-800">
+                    <span class="text-[11px] text-slate-400 block">Invited Friends</span>
+                    <span id="referralCount" class="text-lg font-bold text-purple-300">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Earn by Watching Ads -->
+        <div class="glass rounded-3xl p-5 border border-slate-800/80 space-y-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-slate-100 text-base">Watch & Earn</h3>
+                    <p class="text-xs text-slate-400">Watch high-paying ads and earn instant balance</p>
+                </div>
+                <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                    <i class="fa-solid fa-play"></i>
+                </div>
+            </div>
+
+            <button id="watchAdBtn" onclick="executeAdClick()" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:scale-[0.98] transition-all duration-200 font-bold text-white shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-3">
+                <i class="fa-solid fa-circle-play text-lg"></i>
+                <span id="adBtnText">Watch Ad & Earn ($0.01)</span>
+            </button>
+            <p id="adStatus" class="text-center text-[11px] text-slate-400">Reward will be added immediately after ad completion.</p>
+        </div>
+
+        <!-- Section: Referrals -->
+        <div class="glass rounded-3xl p-5 border border-slate-800/80 space-y-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-slate-100 text-base">Invite & Earn More</h3>
+                    <p class="text-xs text-slate-400">Share your link and earn bonus on every friend</p>
+                </div>
+                <div class="w-10 h-10 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                    <i class="fa-solid fa-user-plus"></i>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 bg-slate-900/80 p-2 rounded-2xl border border-slate-800">
+                <input id="refLinkInput" type="text" readonly value="Generating link..." class="bg-transparent text-xs text-slate-300 px-2 flex-1 outline-none font-mono select-all">
+                <button onclick="copyReferralLink()" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shadow-md">
+                    <i class="fa-regular fa-copy"></i>
+                    <span>Copy</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Section: Withdrawal -->
+        <div class="glass rounded-3xl p-5 border border-slate-800/80 space-y-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="font-bold text-slate-100 text-base">Withdraw Funds</h3>
+                    <p class="text-xs text-slate-400">Minimum withdrawal: $1.00</p>
+                </div>
+                <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+            </div>
+
+            <form id="withdrawForm" onsubmit="handleWithdraw(event)" class="space-y-3">
+                <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Payment Method</label>
+                    <select id="withdrawMethod" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:border-indigo-500 outline-none">
+                        <option value="UPI / Paytm">UPI / Paytm / GPay</option>
+                        <option value="USDT (TRC20 / TON)">USDT (Crypto)</option>
+                        <option value="Binance Pay ID">Binance Pay ID</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Payment Address / Number</label>
+                    <input id="withdrawAddress" type="text" required placeholder="Enter UPI ID or Wallet Address" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:border-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-medium text-slate-400 mb-1">Amount ($)</label>
+                    <input id="withdrawAmount" type="number" step="0.01" min="1.0" required placeholder="1.00" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:border-indigo-500 outline-none">
+                </div>
+                <button type="submit" id="withdrawBtn" class="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] font-bold text-xs text-white shadow-lg shadow-emerald-600/30 transition-all">
+                    Submit Withdrawal Request
+                </button>
+            </form>
+        </div>
+
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-slate-900/90 backdrop-blur-lg border-t border-slate-800 px-6 py-2.5 flex justify-around items-center z-40">
+        <button class="flex flex-col items-center text-indigo-400 gap-1 text-xs">
+            <i class="fa-solid fa-house"></i>
+            <span>Earn</span>
+        </button>
+        <button onclick="window.Telegram?.WebApp?.openTelegramLink('https://t.me/Earnshortner_bot')" class="flex flex-col items-center text-slate-400 hover:text-slate-200 gap-1 text-xs">
+            <i class="fa-solid fa-robot"></i>
+            <span>Bot</span>
+        </button>
+        <button onclick="showToast('More tasks coming soon!', 'info')" class="flex flex-col items-center text-slate-400 hover:text-slate-200 gap-1 text-xs">
+            <i class="fa-solid fa-list-check"></i>
+            <span>Tasks</span>
+        </button>
+    </nav>
+
+    <!-- Application Script -->
+    <script>
+        // CONFIGURATION VARIABLES
+        const SUPABASE_URL = "https://qqthhbqppnwjwkchunop.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_cbmR_q0P5F5CrrhFcown7w_Kdu_wabP";
+        const VERCEL_API_URL = "https://urlshortlink-iota.vercel.app";
+        const BOT_USERNAME = "@Earnshortner_bot";
+
+        // Initialize Supabase Client
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Telegram WebApp Initialization
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.ready();
+            tg.expand();
+        }
+
+        // Current User State
+        let currentUser = {
+            id: null,
+            telegram_id: null,
+            first_name: "Guest",
+            username: "",
+            balance: 0.00,
+            ads_watched: 0,
+            referrals_count: 0
+        };
+
+        const REWARD_PER_AD = 0.01;
+
+        // Initialize User on Page Load
+        async function initApp() {
+            let tgUser = tg?.initDataUnsafe?.user;
+
+            // Fallback for browser testing if not inside Telegram
+            if (!tgUser) {
+                let savedTestId = localStorage.getItem('demo_tg_id');
+                if (!savedTestId) {
+                    savedTestId = Math.floor(100000000 + Math.random() * 900000000).toString();
+                    localStorage.setItem('demo_tg_id', savedTestId);
+                }
+                tgUser = {
+                    id: parseInt(savedTestId),
+                    first_name: "Demo User",
+                    username: "demouser"
+                };
+            }
+
+            currentUser.telegram_id = tgUser.id;
+            currentUser.first_name = tgUser.first_name || "User";
+            currentUser.username = tgUser.username || "";
+
+            // Update UI elements
+            document.getElementById('userName').innerText = currentUser.first_name;
+            document.getElementById('userIdDisplay').innerText = `ID: ${currentUser.telegram_id}`;
+            document.getElementById('userAvatar').innerText = (currentUser.first_name.charAt(0) || "U").toUpperCase();
+
+            // Set Referral Link
+            const cleanBotName = BOT_USERNAME.replace('@', '');
+            const referralLink = `https://t.me/${cleanBotName}?start=${currentUser.telegram_id}`;
+            document.getElementById('refLinkInput').value = referralLink;
+
+            // Fetch or create user in Supabase
+            await syncUserData();
+        }
+
+        // Fetch User Data from Supabase
+        async function syncUserData() {
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('telegram_id', currentUser.telegram_id)
+                    .maybeSingle();
+
+                if (error) throw error;
+
+                if (data) {
+                    currentUser = { ...currentUser, ...data };
+                } else {
+                    // Register new user
+                    const startParam = tg?.initDataUnsafe?.start_param;
+                    let referredBy = null;
+                    if (startParam && !isNaN(parseInt(startParam)) && parseInt(startParam) !== currentUser.telegram_id) {
+                        referredBy = parseInt(startParam);
+                    }
+
+                    const newUser = {
+                        telegram_id: currentUser.telegram_id,
+                        first_name: currentUser.first_name,
+                        username: currentUser.username,
+                        balance: 0.00,
+                        ads_watched: 0,
+                        referrals_count: 0,
+                        referred_by: referredBy
+                    };
+
+                    const { data: createdUser, error: insertError } = await supabase
+                        .from('users')
+                        .insert([newUser])
+                        .select()
+                        .single();
+
+                    if (!insertError && createdUser) {
+                        currentUser = { ...currentUser, ...createdUser };
+
+                        // If user was referred, increment referrer's count and reward them
+                        if (referredBy) {
+                            try {
+                                await supabase.rpc('increment_referral', { referrer_id: referredBy });
+                            } catch (e) {
+                                console.log("Referral increment failed:", e);
+                            }
+                        }
+                    }
+                }
+                updateDashboardUI();
+            } catch (err) {
+                console.error("Database sync error:", err);
+                updateDashboardUI();
+            }
+        }
+
+        // Update UI numbers
+        function updateDashboardUI() {
+            document.getElementById('userBalance').innerText = Number(currentUser.balance || 0).toFixed(4);
+            document.getElementById('adsCount').innerText = currentUser.ads_watched || 0;
+            document.getElementById('referralCount').innerText = currentUser.referrals_count || 0;
+        }
+
+        // Monetag Ad Execution Function
+        async function executeAdClick() {
+            const adBtn = document.getElementById('watchAdBtn');
+            const adStatus = document.getElementById('adStatus');
+            const originalBtnText = document.getElementById('adBtnText').innerText;
+
+            if (typeof show_11833475 !== 'function') {
+                showToast("Ad SDK loading, please wait 3 seconds and retry...", "info");
+                return;
+            }
+
+            adBtn.disabled = true;
+            adBtn.classList.add('opacity-60', 'cursor-not-allowed');
+            adStatus.innerText = "Showing advertisement, please watch completely...";
+
+            try {
+                // Call Monetag SDK function
+                await show_11833475();
+
+                // User successfully completed ad
+                const newBalance = Number(currentUser.balance || 0) + REWARD_PER_AD;
+                const newAdsCount = Number(currentUser.ads_watched || 0) + 1;
+
+                currentUser.balance = newBalance;
+                currentUser.ads_watched = newAdsCount;
+
+                // Update Supabase
+                await supabase
+                    .from('users')
+                    .update({
+                        balance: newBalance,
+                        ads_watched: newAdsCount
+                    })
+                    .eq('telegram_id', currentUser.telegram_id);
+
+                updateDashboardUI();
+                showToast(`Success! +$${REWARD_PER_AD} credited to your balance!`, "success");
+                if (tg?.HapticFeedback) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                }
+            } catch (adError) {
+                console.warn("Monetag Ad skipped or failed:", adError);
+                showToast("Ad was skipped or could not load. Try again.", "error");
+            } finally {
+                adBtn.disabled = false;
+                adBtn.classList.remove('opacity-60', 'cursor-not-allowed');
+                document.getElementById('adBtnText').innerText = originalBtnText;
+                adStatus.innerText = "Reward will be added immediately after ad completion.";
+            }
+        }
+
+        // Handle Withdrawal Request
+        async function handleWithdraw(e) {
+            e.preventDefault();
+            const btn = document.getElementById('withdrawBtn');
+            const method = document.getElementById('withdrawMethod').value;
+            const address = document.getElementById('withdrawAddress').value.trim();
+            const amount = parseFloat(document.getElementById('withdrawAmount').value);
+
+            if (isNaN(amount) || amount < 1.0) {
+                showToast("Minimum withdrawal is $1.00", "error");
+                return;
+            }
+
+            if (amount > currentUser.balance) {
+                showToast("Insufficient balance for this withdrawal!", "error");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Submitting request...";
+
+            try {
+                const newBalance = Number(currentUser.balance) - amount;
+
+                // 1. Insert withdrawal record
+                const { error: withdrawError } = await supabase
+                    .from('withdrawals')
+                    .insert([{
+                        telegram_id: currentUser.telegram_id,
+                        first_name: currentUser.first_name,
+                        amount: amount,
+                        method: method,
+                        account_details: address,
+                        status: 'pending'
+                    }]);
+
+                if (withdrawError) throw withdrawError;
+
+                // 2. Deduct balance from user
+                await supabase
+                    .from('users')
+                    .update({ balance: newBalance })
+                    .eq('telegram_id', currentUser.telegram_id);
+
+                currentUser.balance = newBalance;
+                updateDashboardUI();
+
+                document.getElementById('withdrawForm').reset();
+                showToast("Withdrawal request submitted successfully!", "success");
+            } catch (err) {
+                console.error("Withdraw error:", err);
+                showToast("Failed to submit withdrawal: " + err.message, "error");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Submit Withdrawal Request";
+            }
+        }
+
+        // Copy Referral Link
+        function copyReferralLink() {
+            const input = document.getElementById('refLinkInput');
+            input.select();
+            input.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(input.value).then(() => {
+                showToast("Referral link copied to clipboard!", "success");
+            }).catch(() => {
+                document.execCommand('copy');
+                showToast("Referral link copied!", "success");
+            });
+        }
+
+        // Toast Helper
+        function showToast(message, type = "info") {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.className = `fixed top-5 left-1/2 -translate-x-1/2 z-50 transform transition-all duration-300 opacity-100 px-4 py-2.5 rounded-xl text-xs font-medium shadow-2xl flex items-center gap-2 ${
+                type === 'success' ? 'bg-emerald-600 text-white' :
+                type === 'error' ? 'bg-rose-600 text-white' :
+                type === 'warning' ? 'bg-amber-600 text-white' :
+                'bg-indigo-600 text-white'
+            }`;
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
