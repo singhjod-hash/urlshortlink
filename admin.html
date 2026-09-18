@@ -1,1 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | Telegram Earning System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased">
 
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-5 right-5 z-50 transform transition-all duration-300 opacity-0 pointer-events-none px-4 py-2 rounded-xl text-sm font-medium shadow-xl"></div>
+
+    <!-- Login Modal (Active if not authenticated) -->
+    <div id="loginModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="glass w-full max-w-md rounded-3xl p-8 border border-indigo-500/20 shadow-2xl text-center space-y-6">
+            <div class="w-16 h-16 bg-indigo-600/20 text-indigo-400 rounded-2xl flex items-center justify-center mx-auto text-2xl border border-indigo-500/30">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <div>
+                <h2 class="text-2xl font-bold text-white">Admin Authentication</h2>
+                <p class="text-xs text-slate-400 mt-1">Enter your master security password to proceed</p>
+            </div>
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <input id="adminPasswordInput" type="password" required placeholder="Enter Admin Password" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-sm text-slate-100 focus:border-indigo-500 outline-none">
+                <button type="submit" class="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/30">
+                    Unlock Dashboard
+                </button>
+            </form>
+            <p id="loginError" class="text-xs text-rose-400 hidden">Incorrect password. Access denied.</p>
+        </div>
+    </div>
+
+    <!-- Admin Panel Layout -->
+    <div id="adminPanel" class="hidden min-h-screen flex flex-col">
+        <!-- Top Navbar -->
+        <header class="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-30 px-6 py-4">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center font-bold text-white shadow-md">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-base text-white">Admin Control Center</h1>
+                        <p class="text-[11px] text-slate-400">Bot: @Earnshortner_bot</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="refreshData()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 flex items-center gap-2 border border-slate-700">
+                        <i class="fa-solid fa-rotate"></i>
+                        <span>Refresh</span>
+                    </button>
+                    <button onclick="handleLogout()" class="px-3.5 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-xs font-medium border border-rose-500/30">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-6 py-8 flex-1 space-y-8 w-full">
+            
+            <!-- Stats Counters -->
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass p-5 rounded-2xl border border-slate-800">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs text-slate-400 font-medium">Total Registered Users</span>
+                        <i class="fa-solid fa-users text-indigo-400"></i>
+                    </div>
+                    <h3 id="statTotalUsers" class="text-2xl font-bold text-white">0</h3>
+                </div>
+
+                <div class="glass p-5 rounded-2xl border border-slate-800">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs text-slate-400 font-medium">Total User Balances</span>
+                        <i class="fa-solid fa-dollar-sign text-emerald-400"></i>
+                    </div>
+                    <h3 id="statTotalBalance" class="text-2xl font-bold text-white">$0.00</h3>
+                </div>
+
+                <div class="glass p-5 rounded-2xl border border-slate-800">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs text-slate-400 font-medium">Pending Withdrawals</span>
+                        <i class="fa-solid fa-clock text-amber-400"></i>
+                    </div>
+                    <h3 id="statPendingWithdrawals" class="text-2xl font-bold text-white">0</h3>
+                </div>
+
+                <div class="glass p-5 rounded-2xl border border-slate-800">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs text-slate-400 font-medium">Total Ads Watched</span>
+                        <i class="fa-solid fa-video text-purple-400"></i>
+                    </div>
+                    <h3 id="statTotalAds" class="text-2xl font-bold text-white">0</h3>
+                </div>
+            </section>
+
+            <!-- Telegram Broadcast Module -->
+            <section class="glass p-6 rounded-2xl border border-slate-800 space-y-4">
+                <div class="flex items-center gap-2 text-indigo-400 font-bold text-sm">
+                    <i class="fa-solid fa-bullhorn"></i>
+                    <span>Broadcast Telegram Notification</span>
+                </div>
+                <form onsubmit="handleBroadcast(event)" class="space-y-3">
+                    <textarea id="broadcastMessage" required rows="3" placeholder="Type notification message to send to all registered Telegram users..." class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 outline-none focus:border-indigo-500"></textarea>
+                    <div class="flex justify-end">
+                        <button type="submit" id="broadcastBtn" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-xs font-bold text-white rounded-xl transition-all shadow-md shadow-indigo-600/30 flex items-center gap-2">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            <span>Send Broadcast</span>
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Pending Withdrawals Management -->
+            <section class="glass p-6 rounded-2xl border border-slate-800 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                        <i class="fa-solid fa-money-bill-transfer"></i>
+                        <span>Pending Withdrawal Requests</span>
+                    </div>
+                    <span id="pendingBadge" class="text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-full">0 Pending</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                            <tr>
+                                <th class="py-3 px-4">User / TG ID</th>
+                                <th class="py-3 px-4">Amount</th>
+                                <th class="py-3 px-4">Method</th>
+                                <th class="py-3 px-4">Account Details</th>
+                                <th class="py-3 px-4">Date</th>
+                                <th class="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="withdrawalsTableBody" class="divide-y divide-slate-800/60 font-mono">
+                            <tr>
+                                <td colspan="6" class="py-4 text-center text-slate-500">Loading requests...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Registered Users Table -->
+            <section class="glass p-6 rounded-2xl border border-slate-800 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2 text-slate-200 font-bold text-sm">
+                        <i class="fa-solid fa-user-group"></i>
+                        <span>Recent Users</span>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-900/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                            <tr>
+                                <th class="py-3 px-4">Telegram ID</th>
+                                <th class="py-3 px-4">Name</th>
+                                <th class="py-3 px-4">Balance</th>
+                                <th class="py-3 px-4">Ads Completed</th>
+                                <th class="py-3 px-4">Referrals</th>
+                                <th class="py-3 px-4">Joined Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody" class="divide-y divide-slate-800/60 font-mono">
+                            <tr>
+                                <td colspan="6" class="py-4 text-center text-slate-500">Loading users...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Admin Panel Logic -->
+    <script>
+        // CONFIGURATION VARIABLES
+        const SUPABASE_URL = "https://qqthhbqppnwjwkchunop.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_cbmR_q0P5F5CrrhFcown7w_Kdu_wabP";
+        const VERCEL_BROADCAST_API = "https://urlshortlink-iota.vercel.app";
+        const ADMIN_PASSWORD = "9198244358@g";
+
+        // Initialize Supabase Client
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Check Session Authentication on Load
+        window.addEventListener('DOMContentLoaded', () => {
+            const isAuth = sessionStorage.getItem('admin_session_auth');
+            if (isAuth === 'true') {
+                showDashboard();
+            }
+        });
+
+        // Handle Login
+        function handleLogin(e) {
+            e.preventDefault();
+            const entered = document.getElementById('adminPasswordInput').value;
+            const errorText = document.getElementById('loginError');
+
+            if (entered === ADMIN_PASSWORD) {
+                sessionStorage.setItem('admin_session_auth', 'true');
+                errorText.classList.add('hidden');
+                showDashboard();
+            } else {
+                errorText.classList.remove('hidden');
+            }
+        }
+
+        function handleLogout() {
+            sessionStorage.removeItem('admin_session_auth');
+            location.reload();
+        }
+
+        function showDashboard() {
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('adminPanel').classList.remove('hidden');
+            refreshData();
+        }
+
+        // Fetch All Data
+        async function refreshData() {
+            await Promise.all([
+                loadStats(),
+                loadWithdrawals(),
+                loadUsers()
+            ]);
+        }
+
+        // Load Global Stats
+        async function loadStats() {
+            try {
+                const { data: users, error: usersErr } = await supabase.from('users').select('balance, ads_watched');
+                if (!usersErr && users) {
+                    document.getElementById('statTotalUsers').innerText = users.length;
+                    const totalBal = users.reduce((acc, u) => acc + (parseFloat(u.balance) || 0), 0);
+                    const totalAds = users.reduce((acc, u) => acc + (parseInt(u.ads_watched) || 0), 0);
+                    document.getElementById('statTotalBalance').innerText = `$${totalBal.toFixed(2)}`;
+                    document.getElementById('statTotalAds').innerText = totalAds;
+                }
+
+                const { count, error: withErr } = await supabase
+                    .from('withdrawals')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('status', 'pending');
+
+                if (!withErr) {
+                    document.getElementById('statPendingWithdrawals').innerText = count || 0;
+                    document.getElementById('pendingBadge').innerText = `${count || 0} Pending`;
+                }
+            } catch (e) {
+                console.error("Error loading stats:", e);
+            }
+        }
+
+        // Load Withdrawals
+        async function loadWithdrawals() {
+            const tbody = document.getElementById('withdrawalsTableBody');
+            try {
+                const { data, error } = await supabase
+                    .from('withdrawals')
+                    .select('*')
+                    .eq('status', 'pending')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-slate-500 font-sans">No pending withdrawal requests found.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = data.map(item => `
+                    <tr class="hover:bg-slate-900/40 transition-colors">
+                        <td class="py-3 px-4">${item.telegram_id}</td>
+                        <td class="py-3 px-4 font-bold text-emerald-400">$${parseFloat(item.amount).toFixed(2)}</td>
+                        <td class="py-3 px-4 font-sans text-slate-300">${item.method}</td>
+                        <td class="py-3 px-4 select-all text-indigo-300">${item.account_details}</td>
+                        <td class="py-3 px-4 text-slate-500 text-[11px] font-sans">${new Date(item.created_at).toLocaleDateString()}</td>
+                        <td class="py-3 px-4 text-right space-x-2 font-sans">
+                            <button onclick="updateWithdrawalStatus('${item.id}', 'approved')" class="px-2.5 py-1 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 rounded-lg text-xs">Approve</button>
+                            <button onclick="updateWithdrawalStatus('${item.id}', 'rejected', ${item.telegram_id}, ${item.amount})" class="px-2.5 py-1 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 rounded-lg text-xs">Reject</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-rose-400">Failed to load withdrawals: ${err.message}</td></tr>`;
+            }
+        }
+
+        // Approve or Reject Withdrawal
+        async function updateWithdrawalStatus(id, newStatus, telegramId = null, refundAmount = 0) {
+            if (!confirm(`Are you sure you want to mark this request as ${newStatus}?`)) return;
+
+            try {
+                const { error } = await supabase
+                    .from('withdrawals')
+                    .update({ status: newStatus })
+                    .eq('id', id);
+
+                if (error) throw error;
+
+                // Refund user balance if rejected
+                if (newStatus === 'rejected' && telegramId && refundAmount > 0) {
+                    const { data: user } = await supabase.from('users').select('balance').eq('telegram_id', telegramId).single();
+                    if (user) {
+                        await supabase.from('users').update({ balance: Number(user.balance) + Number(refundAmount) }).eq('telegram_id', telegramId);
+                    }
+                }
+
+                showToast(`Withdrawal successfully marked as ${newStatus}!`, "success");
+                refreshData();
+            } catch (e) {
+                showToast(`Error: ${e.message}`, "error");
+            }
+        }
+
+        // Load Registered Users
+        async function loadUsers() {
+            const tbody = document.getElementById('usersTableBody');
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(50);
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-slate-500 font-sans">No users registered yet.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = data.map(u => `
+                    <tr class="hover:bg-slate-900/40 transition-colors">
+                        <td class="py-3 px-4">${u.telegram_id}</td>
+                        <td class="py-3 px-4 font-sans text-slate-200">${u.first_name || 'Anonymous'}</td>
+                        <td class="py-3 px-4 font-bold text-emerald-400">$${parseFloat(u.balance || 0).toFixed(4)}</td>
+                        <td class="py-3 px-4">${u.ads_watched || 0}</td>
+                        <td class="py-3 px-4">${u.referrals_count || 0}</td>
+                        <td class="py-3 px-4 text-slate-500 text-[11px] font-sans">${new Date(u.created_at).toLocaleDateString()}</td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-rose-400">Failed to load users: ${err.message}</td></tr>`;
+            }
+        }
+
+        // Broadcast Message via Vercel Backend
+        async function handleBroadcast(e) {
+            e.preventDefault();
+            const btn = document.getElementById('broadcastBtn');
+            const msg = document.getElementById('broadcastMessage').value.trim();
+
+            if (!msg) return;
+
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Sending...</span>`;
+
+            try {
+                const response = await fetch(`${VERCEL_BROADCAST_API}/api/broadcast`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg, secret: ADMIN_PASSWORD })
+                });
+
+                if (!response.ok) {
+                    const resJson = await response.json().catch(() => ({}));
+                    throw new Error(resJson.error || "Broadcast endpoint failed");
+                }
+
+                showToast("Broadcast message sent successfully!", "success");
+                document.getElementById('broadcastMessage').value = "";
+            } catch (err) {
+                console.error(err);
+                showToast(`Broadcast notice: ${err.message}`, "info");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> <span>Send Broadcast</span>`;
+            }
+        }
+
+        // Toast Helper
+        function showToast(message, type = "info") {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.className = `fixed top-5 right-5 z-50 transform transition-all duration-300 opacity-100 px-4 py-2.5 rounded-xl text-xs font-medium shadow-2xl flex items-center gap-2 ${
+                type === 'success' ? 'bg-emerald-600 text-white' :
+                type === 'error' ? 'bg-rose-600 text-white' :
+                'bg-indigo-600 text-white'
+            }`;
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
