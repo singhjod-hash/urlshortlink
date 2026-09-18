@@ -7,7 +7,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src='//libtl.com/sdk.js' data-zone='11833475' data-sdk='show_11833475'></script>
+    
+    <!-- MONETAG AD SCRIPT (FIXED) -->
+    <script src='https://libtl.com/sdk.js' data-zone='11833475' data-sdk='show_11833475'></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
@@ -25,8 +28,6 @@
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* Custom Select Styling */
         select { -webkit-appearance: none; -moz-appearance: none; appearance: none; background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" fill="%2394a3b8" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>') no-repeat right 10px center; background-size: 20px; }
     </style>
 </head>
@@ -174,7 +175,6 @@
                     <div class="mb-4">
                         <label class="block text-xs font-bold text-slate-400 mb-2">Select Payment Method</label>
                         <select id="withdraw-method" class="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-3 text-sm focus:outline-none focus:border-indigo-500">
-                            <!-- Populated dynamically -->
                             <option value="">Loading methods...</option>
                         </select>
                     </div>
@@ -238,7 +238,7 @@
                     </a>
                 </div>
 
-                <div class="text-center text-[10px] text-slate-500 mt-8 mb-2">Developed & Maintained by <span class="font-bold text-indigo-400">WebApp Sikho</span></div>
+                <div class="text-center text-[10px] text-slate-500 mt-8 mb-2">Developed & Maintained by <span class="font-bold text-indigo-400">Earnshortlink</span></div>
             </div>
         </div>
 
@@ -278,7 +278,7 @@
         const VERCEL_API_URL = 'https://urlshortlink-iota.vercel.app/api'; 
         
         const BOT_USERNAME = 'Earnshortner_bot'; 
-        const APP_SHORT_NAME = 'httpsurlshortlinkiotavercel'; // CHANGED TO YOUR CUSTOM APP NAME
+        const APP_SHORT_NAME = 'httpsurlshortlinkiotavercel'; 
 
         let dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         let currentUserData = null;
@@ -317,11 +317,28 @@
                 if (adminSettings.maintenance_mode) {
                     document.getElementById('ui-loading').classList.add('hidden');
                     document.getElementById('ui-maintenance').classList.remove('hidden');
-                    return; // Stop app execution
+                    return; 
                 }
 
-                let startParam = tg.initDataUnsafe?.start_param || new URLSearchParams(window.location.search).get('link');
+                // --- BULLETPROOF LINK PARAMETER TRACKER ---
+                let startParam = tg.initDataUnsafe?.start_param;
                 
+                // Fallback for tricky Telegram Desktop / iOS URLs
+                if (!startParam) {
+                    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+                    const tgWebAppData = hashParams.get('tgWebAppData');
+                    if (tgWebAppData) {
+                        const dataParams = new URLSearchParams(tgWebAppData);
+                        startParam = dataParams.get('start_param');
+                    }
+                }
+                
+                // Final fallback for browser debugging
+                if (!startParam) {
+                    startParam = new URLSearchParams(window.location.search).get('link');
+                }
+                // ------------------------------------------
+
                 if (tg.initDataUnsafe?.user) {
                     const user = tg.initDataUnsafe.user;
                     const { data: existUser } = await dbClient.from('users').select('*').eq('telegram_id', user.id).single();
@@ -343,8 +360,11 @@
                         }
                     }
                     currentUserData = existUser || { telegram_id: user.id, balance: 0, today_earnings: 0, total_clicks: 0, id: null };
-                } else if (!startParam) { return document.getElementById('loading-text').innerText = "Open inside Telegram App."; }
+                } else if (!startParam) { 
+                    return document.getElementById('loading-text').innerText = "Open inside Telegram App."; 
+                }
 
+                // If short link is detected, show Ad Flow. Otherwise show Dashboard.
                 if (startParam && startParam.startsWith('link_')) {
                     window.currentShortId = startParam.replace('link_', '');
                     await verifyLinkStatus(); 
@@ -458,16 +478,14 @@
 
             try {
                 const newBal = bal - amount;
-                // 1. Deduct Balance
                 await dbClient.from('users').update({ balance: newBal }).eq('id', currentUserData.id);
-                // 2. Insert Request
                 await dbClient.from('withdrawals').insert([{
                     user_id: currentUserData.id,
                     username: tg.initDataUnsafe?.user?.username || tg.initDataUnsafe?.user?.first_name || 'User',
                     amount: amount, method: method, details: details, status: 'pending'
                 }]);
 
-                currentUserData.balance = newBal; // Update local
+                currentUserData.balance = newBal; 
                 document.getElementById('header-balance').innerText = `$${newBal.toFixed(2)}`;
                 document.getElementById('wallet-balance-page').innerText = `$${newBal.toFixed(2)}`;
                 document.getElementById('withdraw-amount').value = '';
@@ -574,7 +592,7 @@
             } catch(e) {}
         }
 
-        // AD FLOW LOGIC
+        // --- AD FLOW LOGIC ---
         function startAdFlow() {
             document.getElementById('ui-loading').classList.add('hidden'); document.getElementById('ui-ad-viewer').classList.remove('hidden'); setupAdStep();
         }
@@ -605,10 +623,25 @@
             }
         }
 
+        // FIX: Enhanced executeAdClick with proper Promise handling so user never gets stuck
         function executeAdClick() {
-            const btn = document.getElementById('btn-watch-ad'); btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading Ad...`;
-            document.getElementById('ad-loader-ring').classList.remove('hidden'); document.getElementById('ad-timer-text').classList.add('hidden');
-            if (typeof show_11833475 === 'function') { show_11833475().then(() => { handleAdSuccess(); }).catch(() => { handleAdSuccess(); }); }
+            const btn = document.getElementById('btn-watch-ad'); 
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i> Loading Ad...`;
+            document.getElementById('ad-loader-ring').classList.remove('hidden'); 
+            document.getElementById('ad-timer-text').classList.add('hidden');
+            
+            if (typeof show_11833475 === 'function') { 
+                show_11833475()
+                .then(() => { 
+                    handleAdSuccess(); 
+                })
+                .catch((err) => { 
+                    // Fallback if ad is blocked or fails to load, so the user can still proceed
+                    setTimeout(() => { handleAdSuccess(); }, 1500);
+                }); 
+            } else {
+                setTimeout(() => { handleAdSuccess(); }, 1000);
+            }
         }
 
         function handleAdSuccess() {
