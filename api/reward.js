@@ -1,6 +1,6 @@
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
@@ -35,7 +35,7 @@ module.exports = async function handler(req, res) {
             earnings: (linkData.earnings || 0) + earn_amount
         }).eq('id', linkData.id);
 
-        // 4. Fetch and Update USER table (This fixes Home Page Views!)
+        // 4. Fetch and Update USER table
         const { data: userData } = await supabase.from('users').select('*').eq('id', linkData.user_id).single();
         
         if (userData) {
@@ -43,11 +43,11 @@ module.exports = async function handler(req, res) {
                 balance: (userData.balance || 0) + earn_amount,
                 today_earnings: (userData.today_earnings || 0) + earn_amount,
                 total_earnings: (userData.total_earnings || 0) + earn_amount,
-                total_clicks: (userData.total_clicks || 0) + 1,     // HOME PAGE VIEW FIX
+                total_clicks: (userData.total_clicks || 0) + 1,
                 today_clicks: (userData.today_clicks || 0) + 1
             }).eq('id', userData.id);
 
-            // 5. Referral Commission Logic (Perfectly Integrated)
+            // 5. Referral Commission Logic
             const referPercent = adminSettings && adminSettings.refer_percent ? adminSettings.refer_percent : 10;
             if (referPercent > 0) {
                 const { data: referralData } = await supabase.from('referrals').select('referrer_tg_id').eq('referred_tg_id', userData.telegram_id).single();
